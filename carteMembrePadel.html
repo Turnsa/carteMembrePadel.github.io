@@ -1,0 +1,813 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>Cartes de membre – Section padel</title>
+    <style>
+      /* Palette claire par defaut et variables partagees par toute l'interface. */
+      :root {
+        box-sizing: border-box;
+        padding-top: env(safe-area-inset-top, 0px);
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+        --bg: #eef3fb;
+        --sf: #fff;
+        --tx: #10213f;
+        --mu: #566785;
+        --bd: #d3dcee;
+        --ac: #1456d1;
+        --acx: #fff;
+        --ball: #d4ec2f;
+        --sheet: #fff;
+        color-scheme: light;
+      }
+      /* Laisse les commandes visibles sous la barre systeme des appareils a encoche. */
+      html {
+        scroll-padding-top: env(safe-area-inset-top, 0px);
+      }
+      /* Suit le theme systeme, sauf si l'utilisateur a explicitement choisi le clair. */
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+          --bg: #09132a;
+          --sf: #101d37;
+          --tx: #e8eefb;
+          --mu: #93a3c4;
+          --bd: #243456;
+          --ac: #5b97ff;
+          --acx: #06142e;
+          --sheet: #f4f6fb;
+          color-scheme: dark;
+        }
+      }
+      /* Un choix explicite du theme sombre prime sur la preference systeme. */
+      :root[data-theme="dark"] {
+        --bg: #09132a;
+        --sf: #101d37;
+        --tx: #e8eefb;
+        --mu: #93a3c4;
+        --bd: #243456;
+        --ac: #5b97ff;
+        --acx: #06142e;
+        --sheet: #f4f6fb;
+        color-scheme: dark;
+      }
+      /* Inclut bordures et marges internes dans les dimensions declarees des elements. */
+      * {
+        box-sizing: border-box;
+      }
+      /* Couleurs, typographie et interligne de base du document. */
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--tx);
+        font:
+          16px/1.45 "Avenir Next",
+          "Segoe UI",
+          "Helvetica Neue",
+          Arial,
+          sans-serif;
+      }
+      /* Centre le contenu et limite sa largeur sur les grands ecrans. */
+      .wrap {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 20px 16px 48px;
+      }
+      /* Hierarchie visuelle du titre principal. */
+      h1 {
+        font-size: 1.7rem;
+        margin: 0 0 2px;
+        letter-spacing: -0.01em;
+      }
+      /* Texte d'introduction, moins contraste que le titre. */
+      .sub {
+        margin: 0 0 20px;
+        color: var(--mu);
+      }
+      /* Deux colonnes: commandes a gauche et apercu a droite. */
+      .grid {
+        display: grid;
+        grid-template-columns: minmax(0, 420px) minmax(0, 1fr);
+        gap: 20px;
+        align-items: start;
+      }
+      /* Sur ecran etroit, empile les colonnes pour eviter une interface comprimee. */
+      @media (max-width: 860px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+      /* Conteneur visuel commun des panneaux de saisie et d'apercu. */
+      .card {
+        background: var(--sf);
+        border: 1px solid var(--bd);
+        border-radius: 14px;
+        padding: 16px;
+      }
+      /* Titres secondaires a l'interieur de chaque panneau. */
+      h2 {
+        font-size: 1rem;
+        margin: 0 0 10px;
+      }
+      /* Apparence commune des libelles de formulaire. */
+      label {
+        display: block;
+        font-size: 0.85rem;
+        color: var(--mu);
+        margin-bottom: 4px;
+      }
+      /* Les champs s'adaptent a leur colonne et heritent de la police de la page. */
+      input[type="text"] {
+        width: 100%;
+        font: inherit;
+        color: var(--tx);
+        background: transparent;
+        border: 1px solid var(--bd);
+        border-radius: 8px;
+        padding: 8px 10px;
+        min-width: 0;
+      }
+      /* Indicateur de focus visible au clavier pour les commandes interactives. */
+      input:focus-visible,
+      button:focus-visible {
+        outline: 3px solid var(--ball);
+        outline-offset: 1px;
+      }
+      /* Une ligne de membre contient nom, prenom, annee et commande de suppression. */
+      .row {
+        display: grid;
+        grid-template-columns: 1fr 1fr 78px 34px;
+        gap: 6px;
+        margin-bottom: 6px;
+      }
+      /* En-tete des colonnes de saisie. */
+      .rowh {
+        font-size: 0.8rem;
+        color: var(--mu);
+        margin-bottom: 4px;
+      }
+      /* Bouton compact de suppression d'une carte. */
+      .x {
+        border: 1px solid var(--bd);
+        background: transparent;
+        color: var(--mu);
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 1.1rem;
+      }
+      /* Style partage par les boutons secondaires. */
+      .btn {
+        font: inherit;
+        border: 1px solid var(--bd);
+        background: transparent;
+        color: var(--tx);
+        border-radius: 8px;
+        padding: 8px 12px;
+        cursor: pointer;
+      }
+      /* Style du bouton principal de generation du PDF. */
+      .pri {
+        background: var(--ac);
+        color: var(--acx);
+        border-color: var(--ac);
+        font-weight: 700;
+        padding: 12px 16px;
+        width: 100%;
+        font-size: 1.02rem;
+      }
+      /* Signale qu'une action est momentanement indisponible. */
+      .pri:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+      /* Texte explicatif secondaire sous les formulaires et apercus. */
+      .note {
+        font-size: 0.84rem;
+        color: var(--mu);
+        margin: 8px 0 0;
+      }
+      /* Empile les panneaux verticalement avec un espacement constant. */
+      .stack {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      /* Presentation horizontale du controle avec case a cocher. */
+      .chk {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        color: var(--tx);
+        font-size: 0.95rem;
+        margin: 0 0 10px;
+      }
+      /* Rend le champ fichier discret tout en le laissant declenchable par son libelle. */
+      input[type="file"] {
+        position: absolute;
+        opacity: 0;
+        width: 1px;
+        height: 1px;
+      }
+      /* Indique le focus clavier sur le libelle qui ouvre le selecteur de fichier. */
+      .fl:focus-within {
+        outline: 3px solid var(--ball);
+        outline-offset: 1px;
+      }
+      /* Apercu du fond actuellement selectionne. */
+      #bgp {
+        width: 100%;
+        border-radius: 10px;
+        display: block;
+        border: 1px solid var(--bd);
+        margin-bottom: 10px;
+      }
+      /* Curseur de voile sur toute la largeur, colore avec la couleur d'accent. */
+      input[type="range"] {
+        width: 100%;
+        accent-color: var(--ac);
+      }
+      /* Place le nom du reglage a gauche et sa valeur courante a droite. */
+      .rg {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.85rem;
+        color: var(--mu);
+        margin-top: 12px;
+      }
+      /* Dispose les apercus de feuilles sur plusieurs lignes si necessaire. */
+      .sheets {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+      }
+      /* Legende de chaque feuille affichee dans l'apercu. */
+      .sh figcaption {
+        font-size: 0.82rem;
+        color: var(--mu);
+        margin-top: 6px;
+      }
+      /* Supprime la marge par defaut des figures pour garder une grille reguliere. */
+      .sh {
+        margin: 0;
+      }
+      /* Simule visuellement une feuille A4 en respectant son rapport hauteur/largeur. */
+      .sheet {
+        position: relative;
+        width: 236px;
+        aspect-ratio: 210/297;
+        background: var(--sheet);
+        border-radius: 3px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
+      }
+      /* Chaque carte est positionnee en pourcentage dans la feuille A4. */
+      .sheet img {
+        position: absolute;
+        width: 40.76%;
+        height: auto;
+        aspect-ratio: 85.6/54;
+      }
+      /* Message de resultat ou d'erreur associe au telechargement. */
+      .msg {
+        color: var(--mu);
+        font-size: 0.88rem;
+        margin-top: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <!-- En-tete de la page et explication de son objectif. -->
+      <h1>Cartes de membre</h1>
+      <p class="sub">
+        Section padel. Saisis les membres, vérifie l’aperçu, télécharge le PDF
+        A4 à imprimer puis plastifier.
+      </p>
+      <!-- Grille principale: controles des cartes a gauche, rendu imprimable a droite. -->
+      <div class="grid">
+        <div class="stack">
+          <!-- Saisie de l'annee commune et des membres a imprimer. -->
+          <div class="card">
+            <h2>Membres</h2>
+            <label for="yr">Année de validité (pour toutes les cartes)</label>
+            <input
+              type="text"
+              id="yr"
+              value="2026"
+              style="margin-bottom: 14px"
+            />
+            <div class="row rowh">
+              <span>Nom</span><span>Prénom</span><span>Année</span><span></span>
+            </div>
+            <div id="rows"></div>
+            <!-- Ajoute une seule ligne ou un lot de huit cartes vierges. -->
+            <div
+              style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px"
+            >
+              <button class="btn" id="add">Ajouter une carte</button>
+              <button class="btn" id="add8">Ajouter 8 cartes vierges</button>
+            </div>
+            <p class="note">
+              Un champ laissé vide s’imprime en pointillés, pour l’écrire à la
+              main avant de plastifier. La colonne Année remplace l’année
+              commune pour une carte.
+            </p>
+          </div>
+          <!-- Choix du fond du recto et reglages de lisibilite du texte. -->
+          <div class="card">
+            <h2>Fond du recto</h2>
+            <img id="bgp" alt="Fond actuel du recto" />
+            <div style="display: flex; gap: 8px; flex-wrap: wrap">
+              <label
+                class="btn fl"
+                style="margin: 0; color: var(--tx); cursor: pointer"
+                >Choisir une image<input type="file" id="bgf" accept="image/*"
+              /></label>
+              <button class="btn" id="bg0">Image d’origine</button>
+            </div>
+            <div class="rg">
+              <label for="vl" style="margin: 0"
+                >Voile sombre (lisibilité du texte)</label
+              ><span id="vlv">0 %</span>
+            </div>
+            <input type="range" id="vl" min="0" max="70" value="0" />
+            <p class="note">
+              L’image est recadrée au format carte (85,6 × 54 mm). Le titre et
+              les champs sont dessinés par-dessus.
+            </p>
+          </div>
+          <!-- Active ou desactive l'impression de la face arriere avec son QR code. -->
+          <div class="card">
+            <h2>Verso</h2>
+            <label class="chk" style="margin: 0"
+              ><input type="checkbox" id="vs" checked /> Imprimer le verso (QR
+              code)</label
+            >
+          </div>
+        </div>
+        <div class="stack">
+          <!-- Apercu des feuilles A4, actualise a partir des saisies. -->
+          <div class="card">
+            <h2 id="stat">Aperçu</h2>
+            <div class="sheets" id="sheets"></div>
+            <p class="note">
+              Impression : taille réelle (100 %), recto verso avec retournement
+              sur le bord long. Plastifie la feuille, puis découpe en gardant 2
+              mm de plastique autour de chaque carte.
+            </p>
+          </div>
+          <!-- Lance la creation et le telechargement du document PDF. -->
+          <div class="card">
+            <button class="btn pri" id="dl">Télécharger le PDF A4</button>
+            <div class="msg" id="msg" role="status"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- jsPDF fournit la creation du document PDF cote navigateur. -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script>
+      /*
+       * Images de fond integrees au fichier pour rendre la page autonome.
+       * Les cles r, v et q designent le recto, le verso et le QR code.
+       * Les longues chaines Base64 representent des donnees binaires:
+       * ne pas les editer manuellement, au risque de rendre une image invalide.
+       */
+      const SRC = {
+        r: "assets/recto.jpg",
+        v: "assets/verso.jpg",
+        q: "assets/qr2.png",
+      };
+      /* Police utilisee pour les textes dessines sur les cartes. */
+      const FONT = '"Inter","SF Pro Text","Helvetica Neue",Arial,sans-serif';
+      /*
+       * Dimensions des cartes et ecarts de mise en page, en millimetres.
+       * X0/Y0 definissent le decalage du premier emplacement sur la feuille A4.
+       * PER est le nombre maximal de cartes par feuille (deux colonnes sur quatre rangees).
+       */
+      const W = 85.6,
+        H = 54,
+        GAP = 8,
+        X0 = 15.4,
+        Y0 = 28.5,
+        PER = 8;
+      let IM = null,
+        BG = null,
+        veil = 0,
+        rows = [{ n: "", p: "", a: "" }],
+        cache = new Map(),
+        versoURL = "",
+        timer = 0;
+      /* Raccourci pour retrouver un element HTML a partir de son identifiant. */
+      const $ = (id) => document.getElementById(id);
+      /* Charge une image depuis une URL et renvoie une promesse qui echoue si elle est illisible. */
+      const load = (s) =>
+        new Promise((r, j) => {
+          const i = new Image();
+          i.onload = () => r(i);
+          i.onerror = j;
+          i.src = s;
+        });
+      /* Renvoie l'annee commune apres suppression des espaces superflus. */
+      const year = () => $("yr").value.trim();
+
+      /* Cree le canevas de travail au format exact du recto/verso de la carte. */
+      function cv() {
+        const c = document.createElement("canvas");
+        c.width = 1600;
+        c.height = 1009;
+        return c;
+      }
+      /* Recadre l'image pour remplir le canevas sans bandes vides ni deformation. */
+      function cover(g, im) {
+        const s = Math.max(1600 / im.width, 1009 / im.height),
+          w = im.width * s,
+          h = im.height * s;
+        g.drawImage(im, (1600 - w) / 2, (1009 - h) / 2, w, h);
+      }
+      /*
+       * Ajuste la police jusqu'a ce que le texte t tienne dans maxw.
+       * Utilitaire de mesure/ajustement conserve dans le fichier.
+       */
+      function fit(g, t, x, y, maxw, size, wt, st) {
+        let s = size;
+        do {
+          g.font = st + " " + wt + " " + s + "px " + FONT;
+          s -= 2;
+        } while (g.measureText(t).width > maxw && s > 24);
+      }
+      /* Dessine un texte avec la plus grande taille de depart qui respecte la largeur maximale. */
+      function txt(g, t, x, y, w, wt, st, col) {
+        g.fillStyle = col;
+        let s = 200;
+        do {
+          g.font = st + " " + wt + " " + s + "px " + FONT;
+          s -= 2;
+        } while (g.measureText(t).width > w && s > 20);
+        g.fillText(t, x, y);
+      }
+      /*
+       * Compose une image JPEG de recto pour un membre:
+       * fond recadre, voile facultatif, titre et champs remplis ou pointilles.
+       */
+      function recto(r) {
+        /* L'annee individuelle remplace l'annee commune; les valeurs du rendu servent de cle de cache. */
+        const a = r.a.trim() || year(),
+          k = [r.n.trim(), r.p.trim(), a, veil, BG.src.length].join("|");
+        if (cache.has(k)) return cache.get(k);
+        const c = cv(),
+          g = c.getContext("2d");
+        /* Le fond choisi couvre la carte sans deformation. */
+        cover(g, BG);
+        /* Le voile est un degrade sombre progressif qui facilite la lecture du texte blanc. */
+        if (veil) {
+          const v = g.createLinearGradient(0, 0, 1600, 0);
+          v.addColorStop(0, "rgba(0,8,38," + veil / 100 + ")");
+          v.addColorStop(0.6, "rgba(0,8,38," + (veil / 100) * 0.8 + ")");
+          v.addColorStop(1, "rgba(0,8,38,0)");
+          g.fillStyle = v;
+          g.fillRect(0, 0, 1600, 1009);
+        }
+        /* Les titres et les donnees sont dessines a des positions fixes du canevas. */
+        g.textBaseline = "alphabetic";
+        txt(g, "Section", 104, 167, 404, 700, "normal", "#fff");
+        txt(g, "padel", 80, 323, 696, 900, "italic", "#e8edf8");
+        txt(
+          g,
+          "Carte nominative et non cessible",
+          61,
+          991,
+          398,
+          400,
+          "italic",
+          "#fff",
+        );
+        [
+          [r.n, 555],
+          [r.p, 665],
+          [a, 774],
+        ].forEach(([v, y]) => {
+          /* Un champ vide devient une ligne de pointilles a remplir a la main. */
+          const t = v.trim() || ".....";
+          let s = 59;
+          do {
+            g.font = "500 " + s + "px " + FONT;
+            s -= 2;
+          } while (g.measureText(t).width > 920 && s > 26);
+          g.fillStyle = "#fff";
+          g.fillText(t, 86, y);
+        });
+        /* Stocke le rendu JPEG dans le cache pour reutiliser les cartes inchangees. */
+        const u = c.toDataURL("image/jpeg", 0.92);
+        cache.set(k, u);
+        return u;
+      }
+      /* Compose le verso en superposant le QR code au fond de verso. */
+      function verso() {
+        const c = cv(),
+          g = c.getContext("2d");
+        cover(g, IM.v);
+        /* Le QR garde ses proportions et est centre sur la carte. */
+        const qh = 720,
+          qw = (qh * IM.q.width) / IM.q.height;
+        g.drawImage(IM.q, (1600 - qw) / 2, (1009 - qh) / 2, qw, qh);
+        versoURL = c.toDataURL("image/jpeg", 0.92);
+      }
+      /* Convertit un indice de carte en coordonnees mm; mirror inverse les colonnes au verso. */
+      const pos = (i, mirror) => {
+        const r = Math.floor(i / 2),
+          k = i % 2;
+        return [X0 + (mirror ? 1 - k : k) * (W + GAP), Y0 + r * (H + GAP)];
+      };
+
+      /* Construit l'apercu d'une feuille et positionne ses images en pourcentage. */
+      function sheet(urls, mirror, cap) {
+        const f = document.createElement("figure");
+        f.className = "sh";
+        const s = document.createElement("div");
+        s.className = "sheet";
+        urls.forEach((u, i) => {
+          /* Les positions millimetriques sont rapportees au format A4 pour le rendu CSS. */
+          const [x, y] = pos(i, mirror),
+            im = document.createElement("img");
+          im.src = u;
+          im.alt = "";
+          im.style.left = (x / 210) * 100 + "%";
+          im.style.top = (y / 297) * 100 + "%";
+          s.appendChild(im);
+        });
+        const c = document.createElement("figcaption");
+        c.textContent = cap;
+        f.append(s, c);
+        return f;
+      }
+
+      /* Regenerer l'apercu complet a partir de l'etat courant du formulaire. */
+      function render() {
+        /* Attend que les images source soient chargees avant de dessiner les cartes. */
+        if (!IM) return;
+        /* Convertit les donnees en rectos, calcule le nombre de feuilles et lit l'option verso. */
+        const list = rows.map(recto),
+          vs = $("vs").checked,
+          pages = Math.ceil(list.length / PER);
+        $("stat").textContent =
+          list.length +
+          (list.length > 1 ? " cartes" : " carte") +
+          " · " +
+          pages +
+          (pages > 1 ? " feuilles A4" : " feuille A4");
+        const S = $("sheets");
+        /* Remplace les anciens apercus pour refleter les modifications. */
+        S.textContent = "";
+        for (let p = 0; p < pages; p++) {
+          /* Une feuille contient au plus PER cartes; le verso est en miroir pour l'impression duplex. */
+          const ch = list.slice(p * PER, p * PER + PER);
+          S.appendChild(sheet(ch, false, "Feuille " + (p + 1) + " · recto"));
+          if (vs)
+            S.appendChild(
+              sheet(
+                ch.map(() => versoURL),
+                true,
+                "Feuille " + (p + 1) + " · verso",
+              ),
+            );
+        }
+      }
+      /* Regroupe les saisies rapides: attend 160 ms sans nouvelle frappe avant de redessiner. */
+      const later = () => {
+        clearTimeout(timer);
+        timer = setTimeout(render, 160);
+      };
+
+      /* Reconstruit les champs de saisie a partir du tableau rows. */
+      function buildRows() {
+        const R = $("rows");
+        R.textContent = "";
+        rows.forEach((r, i) => {
+          const d = document.createElement("div");
+          d.className = "row";
+          [
+            ["n", "Nom"],
+            ["p", "Prénom"],
+            ["a", year() || "Année"],
+          ].forEach(([f, ph]) => {
+            /* Lie chaque champ a une propriete du membre et actualise l'apercu a la frappe. */
+            const e = document.createElement("input");
+            e.type = "text";
+            e.value = r[f];
+            e.placeholder = ph;
+            e.setAttribute("aria-label", ph + " – carte " + (i + 1));
+            e.autocomplete = "off";
+            e.oninput = () => {
+              r[f] = e.value;
+              later();
+            };
+            d.appendChild(e);
+          });
+          /* Bouton de suppression accessible au clavier et aux lecteurs d'ecran. */
+          const b = document.createElement("button");
+          b.className = "x";
+          b.textContent = "×";
+          b.title = "Supprimer cette carte";
+          b.setAttribute("aria-label", "Supprimer la carte " + (i + 1));
+          b.onclick = () => {
+            /* Supprime la ligne choisie, mais maintient toujours une carte editable. */
+            rows.splice(i, 1);
+            if (!rows.length) rows.push({ n: "", p: "", a: "" });
+            buildRows();
+            render();
+          };
+          d.appendChild(b);
+          R.appendChild(d);
+        });
+      }
+      /* Ajoute une carte vierge et place le focus sur le premier champ de cette carte. */
+      $("add").onclick = () => {
+        rows.push({ n: "", p: "", a: "" });
+        buildRows();
+        render();
+        const i = $("rows").querySelectorAll(".row");
+        i[i.length - 1].firstChild.focus();
+      };
+      /* Ajoute huit cartes; remplace la carte initiale si elle est encore vide. */
+      $("add8").onclick = () => {
+        for (let i = 0; i < 8; i++) rows.push({ n: "", p: "", a: "" });
+        if (
+          rows.length > 8 &&
+          rows.slice(0, 1).every((r) => !r.n && !r.p && !r.a) &&
+          rows.length === 9
+        )
+          rows.shift();
+        buildRows();
+        render();
+      };
+      /* Invalide les rendus mis en cache et actualise les annees proposees dans les champs. */
+      $("yr").oninput = () => {
+        cache.clear();
+        buildRows();
+        later();
+      };
+      /* Actualise l'apercu quand l'impression du verso est activee ou desactivee. */
+      $("vs").onchange = render;
+      /* Definit le fond actif et met a jour son apercu reduit ainsi que la valeur du voile. */
+      function setBG(im, v) {
+        BG = im;
+        veil = v;
+        $("vl").value = v;
+        $("vlv").textContent = v + " %";
+        const c = document.createElement("canvas");
+        /* Utilise un apercu plus petit que le canevas d'impression pour economiser le calcul. */
+        c.width = 480;
+        c.height = 303;
+        const g = c.getContext("2d");
+        g.scale(0.3, 0.3);
+        cover(g, im);
+        $("bgp").src = c.toDataURL("image/jpeg", 0.8);
+      }
+      /* Charge le fichier choisi et l'applique comme nouveau fond de recto. */
+      $("bgf").onchange = (e) => {
+        const f = e.target.files[0];
+        if (!f) return;
+        const fr = new FileReader();
+        fr.onload = async () => {
+          try {
+            setBG(await load(fr.result), 30);
+            render();
+          } catch (x) {
+            /* Affiche un message si le fichier choisi n'est pas une image exploitable. */
+            $("msg").textContent = "Cette image n’a pas pu être lue.";
+          }
+        };
+        /* Lit le fichier comme URL de donnees et vide le controle pour autoriser sa re-selection. */
+        fr.readAsDataURL(f);
+        e.target.value = "";
+      };
+      /* Restaure le fond de recto integre au fichier et supprime le voile sombre. */
+      $("bg0").onclick = () => {
+        setBG(IM.r, 0);
+        render();
+      };
+      /* Applique la valeur du curseur et differe le recalcul de l'apercu pendant le glissement. */
+      $("vl").oninput = () => {
+        veil = +$("vl").value;
+        $("vlv").textContent = veil + " %";
+        later();
+      };
+
+      /* Trace les reperes de coupe aux quatre coins d'une carte dans le PDF. */
+      function marks(d, x, y) {
+        const o = 3,
+          t = 2;
+        d.setDrawColor(140);
+        d.setLineWidth(0.2);
+        [
+          [x, y],
+          [x + W, y],
+          [x, y + H],
+          [x + W, y + H],
+        ].forEach(([cx, cy], i) => {
+          /* Oriente les traits vers l'exterieur pour ne pas couvrir le visuel de la carte. */
+          const sx = i % 2 ? 1 : -1,
+            sy = i < 2 ? -1 : 1;
+          d.line(cx + sx * o, cy, cx + sx * (o + t), cy);
+          d.line(cx, cy + sy * o, cx, cy + sy * (o + t));
+        });
+      }
+      /*
+       * Genere les pages A4 en millimetres, avec versos optionnels,
+       * puis enregistre le PDF via l'integration disponible ou le navigateur.
+       */
+      async function dl() {
+        const m = $("msg"),
+          button = $("dl");
+        m.textContent = "";
+        /* Evite les clics repetes pendant le calcul et la sauvegarde du fichier. */
+        button.disabled = true;
+        try {
+          /* L'API de telechargement de l'hote est facultative; le navigateur sert de repli. */
+          const dls = await (window.claude && claude.use
+            ? claude.use("downloads").catch(() => null)
+            : null);
+          const list = rows.map(recto),
+            vs = $("vs").checked,
+            pages = Math.ceil(list.length / PER);
+          const d = new window.jspdf.jsPDF({
+            unit: "mm",
+            format: "a4",
+            compress: true,
+          });
+          /* Cree un recto par feuille, puis son verso si l'option correspondante est cochee. */
+          for (let p = 0; p < pages; p++) {
+            const ch = list.slice(p * PER, p * PER + PER);
+            if (p) d.addPage();
+            ch.forEach((u, i) => {
+              const [x, y] = pos(i, false);
+              d.addImage(u, "JPEG", x, y, W, H);
+              marks(d, x, y);
+            });
+            if (vs) {
+              d.addPage();
+              ch.forEach((u, i) => {
+                const [x, y] = pos(i, true);
+                d.addImage(versoURL, "JPEG", x, y, W, H, "verso");
+                marks(d, x, y);
+              });
+            }
+          }
+          /* Recupere le document binaire genere et le nom de fichier a utiliser. */
+          const blob = d.output("blob"),
+            name = "cartes-membres-padel.pdf";
+          if (dls) {
+            try {
+              /* Utilise l'API native de l'environnement hote lorsqu'elle est disponible. */
+              await dls.save({ filename: name, data: blob });
+              m.textContent = "PDF enregistré.";
+              return;
+            } catch (e) {
+              /* Une annulation explicite ne doit pas declencher un second telechargement. */
+              if (e && e.code === "declined") {
+                m.textContent = "Téléchargement annulé.";
+                return;
+              }
+            }
+          }
+          /* Secours navigateur: cree un lien temporaire pour telecharger le Blob PDF. */
+          const url = URL.createObjectURL(blob),
+            a = document.createElement("a");
+          a.href = url;
+          a.download = name;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          /* Libere l'URL temporaire apres le demarrage du telechargement. */
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+          m.textContent = "PDF téléchargé.";
+        } catch (e) {
+          m.textContent = "La génération du PDF a échoué. Réessaie.";
+        } finally {
+          /* Reactive le bouton meme si la generation ou la sauvegarde echoue. */
+          button.disabled = false;
+        }
+      }
+      /* Relie le bouton principal a la fonction de generation du PDF. */
+      $("dl").onclick = dl;
+
+      /* Initialise la page: charge les sources, puis cree les controles et l'apercu. */
+      (async () => {
+        const [r, v, q] = await Promise.all([
+          load(SRC.r),
+          load(SRC.v),
+          load(SRC.q),
+        ]);
+        /* Rend les images disponibles aux fonctions de dessin avant le premier rendu. */
+        IM = { r, v, q };
+        setBG(r, 0);
+        buildRows();
+        verso();
+        render();
+      })();
+    </script>
+  </body>
+</html>
